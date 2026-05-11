@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fluz" />
+  <meta name="theme-color" content="#050D1A" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <title>Fluz Widget</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      background: #050D1A;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      max-width: 375px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      background: #050D1A;
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    /* ── Chargement ────────────────────────────────────────────────── */
+    #loading {
+      position: fixed; inset: 0;
+      background: #050D1A;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 18px; z-index: 999;
+    }
+    #loading.gone { display: none; }
+
+    .logo-big {
+      font-size: 48px; font-weight: 900; letter-spacing: -2px;
+      background: linear-gradient(135deg, #008B9E 0%, #00FF88 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2.5px solid rgba(0,139,158,0.2);
+      border-top-color: #008B9E;
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-label { font-size: 14px; color: rgba(255,255,255,0.35); }
+
+    /* ── Écran connexion ───────────────────────────────────────────── */
+    #login-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 28px 20px;
+      gap: 28px;
+    }
+
+    .logo-wrap { text-align: center; }
+    .logo-text {
+      font-size: 44px; font-weight: 900; letter-spacing: -2px;
+      background: linear-gradient(135deg, #008B9E, #00FF88);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo-sub {
+      font-size: 12px; color: rgba(255,255,255,0.35);
+      letter-spacing: 4px; text-transform: uppercase; margin-top: 6px;
+    }
+
+    .card {
+      background: #0D1B2A;
+      border: 1px solid #1A2E42;
+      border-radius: 20px;
+      padding: 22px 20px;
+      width: 100%;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    .card-title { font-size: 17px; font-weight: 700; text-align: center; }
+
+    input {
+      background: #141F2E;
+      border: 1px solid #1A2E42;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px; color: #fff; width: 100%;
+      outline: none; -webkit-appearance: none;
+      transition: border-color .2s;
+    }
+    input:focus { border-color: #008B9E; }
+    input::placeholder { color: #4A6080; }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border: none; border-radius: 14px;
+      padding: 16px; width: 100%;
+      font-size: 15px; font-weight: 800;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: opacity .15s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-cyan  { background: #008B9E; color: #050D1A; }
+    .btn-green { background: #00FF88; color: #050D1A; }
+
+    .err {
+      display: none; color: #FF6B6B;
+      font-size: 13px; text-align: center; line-height: 1.5;
+    }
+
+    /* ── Dashboard ─────────────────────────────────────────────────── */
+    #dashboard {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 0 16px 32px;
+    }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+      padding-bottom: 8px;
+    }
+    .header-logo {
+      font-size: 26px; font-weight: 900; letter-spacing: -1px;
+      background: linear-gradient(135deg, #008B9E, #00FF88);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-month { font-size: 13px; color: rgba(255,255,255,0.45); font-weight: 600; }
+    .refresh-btn {
+      background: rgba(0,139,158,0.1);
+      border: 1px solid rgba(0,139,158,0.35);
+      border-radius: 10px;
+      padding: 6px 12px;
+      color: #008B9E; font-size: 12px; font-weight: 700;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Balance card */
+    .balance-card {
+      background: linear-gradient(145deg, #0D1B2A, #0A1520);
+      border: 1px solid #1A2E42;
+      border-radius: 22px;
+      padding: 20px;
+      position: relative; overflow: hidden;
+    }
+    .balance-card::after {
+      content: '';
+      position: absolute; top: -50px; right: -50px;
+      width: 140px; height: 140px; border-radius: 70px;
+      background: radial-gradient(circle, rgba(0,139,158,0.12), transparent 70%);
+      pointer-events: none;
+    }
+
+    .bal-label {
+      font-size: 11px; font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 1.5px; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .bal-amount {
+      font-size: 46px; font-weight: 900;
+      letter-spacing: -2px; line-height: 1;
+      margin-bottom: 6px;
+    }
+    .bal-amount.pos { color: #00FF88; }
+    .bal-amount.neg { color: #FF6B6B; }
+    .bal-spent {
+      font-size: 13px; color: rgba(255,255,255,0.4);
+      margin-top: 6px;
+    }
+    .bal-spent b { color: #FF6B6B; font-weight: 700; }
+
+    /* Progress */
+    .progress-wrap { margin-top: 16px; }
+    .progress-track {
+      height: 5px; background: #1A2E42;
+      border-radius: 3px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 3px;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+    .progress-meta {
+      display: flex; justify-content: space-between;
+      margin-top: 5px;
+    }
+    .progress-meta span { font-size: 11px; color: rgba(255,255,255,0.3); }
+
+    /* Stats row */
+    .stats-row { display: flex; gap: 10px; }
+    .stat-box {
+      flex: 1;
+      background: #0D1B2A; border: 1px solid #1A2E42;
+      border-radius: 16px; padding: 14px 12px;
+    }
+    .stat-label {
+      font-size: 10px; font-weight: 700;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px;
+    }
+    .stat-value { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+
+    /* Status message */
+    .status-card {
+      border-radius: 16px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      border: 1px solid transparent;
+    }
+    .status-icon { font-size: 28px; flex-shrink: 0; }
+    .status-text { font-size: 16px; font-weight: 900; letter-spacing: -0.3px; }
+    .status-sub  { font-size: 12px; margin-top: 3px; opacity: .65; }
+
+    /* Budget alerts */
+    .section-label {
+      font-size: 11px; font-weight: 700;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 1.5px; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 7px; }
+    .pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 11px; border-radius: 20px;
+      font-size: 12px; font-weight: 700;
+      border: 1px solid;
+    }
+    .pill-icon { font-size: 13px; }
+
+    .no-alerts {
+      font-size: 13px; color: #00FF88;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* Footer */
+    .last-update {
+      text-align: center; font-size: 11px;
+      color: rgba(255,255,255,0.2); margin-top: 4px;
+    }
+    .logout-btn {
+      background: none; border: 1px solid rgba(255,107,107,0.25);
+      border-radius: 14px; padding: 12px;
+      color: #FF6B6B; font-size: 13px; font-weight: 700;
+      width: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Chargement -->
+<div id="loading">
+  <div class="logo-big">FLUZ</div>
+  <div class="spinner"></div>
+  <div class="loading-label">Chargement...</div>
+</div>
+
+<!-- Connexion -->
+<div id="login-screen">
+  <div class="logo-wrap">
+    <div class="logo-text">FLUZ</div>
+    <div class="logo-sub">Gestion budgétaire</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Se connecter</div>
+    <input id="email"    type="email"    placeholder="Email"         autocomplete="email" />
+    <input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password" />
+    <div class="err" id="err"></div>
+    <button class="btn btn-cyan" id="login-btn" onclick="signIn()">Se connecter</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+
+  <div class="header">
+    <div class="header-logo">FLUZ</div>
+    <div class="header-month" id="month-label"></div>
+    <button class="refresh-btn" onclick="fetchData()">↻</button>
+  </div>
+
+  <!-- Carte solde -->
+  <div class="balance-card">
+    <div class="bal-label">Solde restant</div>
+    <div class="bal-amount" id="bal-amount">—</div>
+    <div class="bal-spent">Dépensé : <b id="bal-spent">—</b></div>
+    <div class="progress-wrap">
+      <div class="progress-track">
+        <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-meta">
+        <span id="prog-left"></span>
+        <span id="prog-total"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats dépensé / revenu -->
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-label">Dépenses</div>
+      <div class="stat-value" id="s-spent" style="color:#FF6B6B">—</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Revenus</div>
+      <div class="stat-value" id="s-income" style="color:#00FF88">—</div>
+    </div>
+  </div>
+
+  <!-- Message intelligent -->
+  <div class="status-card" id="status-card">
+    <div class="status-icon" id="status-icon">⏳</div>
+    <div>
+      <div class="status-text" id="status-text">Chargement...</div>
+      <div class="status-sub"  id="status-sub"></div>
+    </div>
+  </div>
+
+  <!-- Alertes budget -->
+  <div>
+    <div class="section-label">Alertes budget</div>
+    <div class="pills" id="pills">
+      <div class="no-alerts">Chargement...</div>
+    </div>
+  </div>
+
+  <div class="last-update" id="last-update"></div>
+
+  <button class="logout-btn" onclick="logout()">Déconnexion</button>
+
+</div>
+
+<!-- SDK Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  /* ── Config ─────────────────────────────────────────────────────── */
+  const SUPABASE_URL  = 'https://oghftycmjxpoktsouvsf.supabase.co';
+  const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9naGZ0eWNtanhwb2t0c291dnNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNDE2NjUsImV4cCI6MjA5MjgxNzY2NX0.yPXTDmObxqs4YSEg113NPSNARNkVR-GuWxFSnPbIdqA';
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  /* ── Données ─────────────────────────────────────────────────────── */
+  const CATS = [
+    { id: 'loyer',          name: 'Loyer',          icon: '🏠', color: '#E24B4A', def: 750  },
+    { id: 'nourriture',     name: 'Nourriture',     icon: '🛒', color: '#EF9F27', def: 200  },
+    { id: 'cantine',        name: 'Cantine',        icon: '🍽️', color: '#BA7517', def: 70   },
+    { id: 'transport',      name: 'Transport',      icon: '🚌', color: '#378ADD', def: 150  },
+    { id: 'abonnements',    name: 'Abonnements',    icon: '📱', color: '#7F77DD', def: 100  },
+    { id: 'epargne',        name: 'Épargne',        icon: '🏦', color: '#639922', def: 240  },
+    { id: 'investissement', name: 'Investissement', icon: '📈', color: '#1D9E75', def: 120  },
+    { id: 'plaisir',        name: 'Plaisir',        icon: '🎉', color: '#D4537E', def: 100  },
+    { id: 'autres',         name: 'Autres',         icon: '📦', color: '#888780', def: 50   },
+  ];
+
+  const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  /* ── Utilitaires ─────────────────────────────────────────────────── */
+  const eur = v => new Intl.NumberFormat('fr-FR', {
+    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
+  }).format(v);
+
+  function statusFor(spent, income) {
+    const r = income > 0 ? spent / income : 0;
+    if (r <= 0.30) return { icon: '🏆', text: 'CHAMPION',      sub: 'Maîtrise parfaite du budget',       bg: 'rgba(0,255,136,0.10)',    color: '#00FF88', border: 'rgba(0,255,136,0.30)'    };
+    if (r <= 0.55) return { icon: '👍', text: 'BIEN GÉRÉ',     sub: 'Sur la bonne voie',                 bg: 'rgba(0,139,158,0.10)',    color: '#008B9E', border: 'rgba(0,139,158,0.30)'    };
+    if (r <= 0.75) return { icon: '⚠️', text: 'ATTENTION',     sub: 'Le budget se tend',                 bg: 'rgba(253,203,110,0.10)',  color: '#FDCB6E', border: 'rgba(253,203,110,0.30)'  };
+    if (r <= 1.00) return { icon: '🔥', text: 'GROS DÉPENSIER',sub: 'Presque à cours de budget !',       bg: 'rgba(225,112,85,0.12)',   color: '#E17055', border: 'rgba(225,112,85,0.35)'   };
+    return           { icon: '🚨', text: 'DÉPASSEMENT',        sub: `Dépassé de ${eur(spent - income)}`, bg: 'rgba(255,107,107,0.12)', color: '#FF6B6B', border: 'rgba(255,107,107,0.35)' };
+  }
+
+  function progColor(pct) {
+    if (pct < 60) return '#00FF88';
+    if (pct < 80) return '#FDCB6E';
+    return '#FF6B6B';
+  }
+
+  /* ── Affichage des écrans ────────────────────────────────────────── */
+  function show(id) {
+    ['loading','login-screen','dashboard'].forEach(s =>
+      document.getElementById(s).style.display = 'none'
+    );
+    const el = document.getElementById(id);
+    el.style.display = (id === 'loading') ? 'flex' : (id === 'login-screen') ? 'flex' : 'flex';
+    el.style.flexDirection = 'column';
+  }
+
+  /* ── Auth ────────────────────────────────────────────────────────── */
+  async function signIn() {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('login-btn');
+    const errEl    = document.getElementById('err');
+
+    btn.disabled = true;
+    btn.textContent = 'Connexion...';
+    errEl.style.display = 'none';
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      errEl.textContent = 'Email ou mot de passe incorrect.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Se connecter';
+      return;
+    }
+    show('dashboard');
+    fetchData();
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    show('login-screen');
+  }
+
+  /* ── Données ─────────────────────────────────────────────────────── */
+  async function fetchData() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { show('login-screen'); return; }
+
+    const now   = new Date();
+    const month = now.getMonth();
+    const year  = now.getFullYear();
+
+    document.getElementById('month-label').textContent =
+      MOIS[month] + ' ' + year;
+
+    /* Profil */
+    const { data: profile } = await sb
+      .from('profiles').select('*').eq('user_id', user.id).single();
+    const income  = profile?.income  || 0;
+    const budgets = profile?.budgets || {};
+
+    /* Transactions du mois */
+    const startDate = `${year}-${String(month + 1).padStart(2,'0')}-01`;
+    const endDate   = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+
+    const { data: txs } = await sb
+      .from('transactions').select('*')
+      .eq('user_id', user.id)
+      .gte('date', startDate).lte('date', endDate);
+
+    const rows        = txs || [];
+    const totalSpent  = rows.filter(t => t.type === 'depense').reduce((s,t) => s + t.amount, 0);
+    const totalIncome = rows.filter(t => t.type === 'revenu' ).reduce((s,t) => s + t.amount, 0);
+    const effective   = income + totalIncome;
+    const balance     = effective - totalSpent;
+
+    /* — Solde — */
+    const balEl = document.getElementById('bal-amount');
+    balEl.textContent  = eur(balance);
+    balEl.className    = 'bal-amount ' + (balance >= 0 ? 'pos' : 'neg');
+    document.getElementById('bal-spent').textContent = eur(totalSpent);
+
+    /* — Barre de progression — */
+    const pct  = effective > 0 ? Math.min((totalSpent / effective) * 100, 100) : 0;
+    const fill = document.getElementById('prog-fill');
+    fill.style.width      = pct.toFixed(1) + '%';
+    fill.style.background = progColor(pct);
+    document.getElementById('prog-left' ).textContent = Math.round(pct) + '% consommé';
+    document.getElementById('prog-total').textContent = eur(effective);
+
+    /* — Stats — */
+    document.getElementById('s-spent' ).textContent = eur(totalSpent);
+    document.getElementById('s-income').textContent = eur(effective);
+
+    /* — Message intelligent — */
+    const st   = statusFor(totalSpent, effective);
+    const card = document.getElementById('status-card');
+    card.style.background   = st.bg;
+    card.style.borderColor  = st.border;
+    document.getElementById('status-icon').textContent  = st.icon;
+    const stText = document.getElementById('status-text');
+    stText.textContent  = st.text;
+    stText.style.color  = st.color;
+    document.getElementById('status-sub').textContent   = st.sub;
+
+    /* — Alertes budget — */
+    const spentByCat = {};
+    rows.filter(t => t.type === 'depense').forEach(t => {
+      spentByCat[t.category] = (spentByCat[t.category] || 0) + t.amount;
+    });
+
+    const alerts = CATS
+      .map(cat => {
+        const spent  = spentByCat[cat.id] || 0;
+        const budget = budgets[cat.id] || cat.def;
+        const ratio  = budget > 0 ? spent / budget : 0;
+        return { cat, spent, budget, ratio };
+      })
+      .filter(a => a.ratio >= 0.80)
+      .sort((a, b) => b.ratio - a.ratio);
+
+    const pillsEl = document.getElementById('pills');
+    if (alerts.length === 0) {
+      pillsEl.innerHTML = '<div class="no-alerts">✓ Tous les budgets sont OK</div>';
+    } else {
+      pillsEl.innerHTML = alerts.map(({ cat, ratio }) => {
+        const isOver   = ratio >= 1;
+        const bg       = isOver ? 'rgba(255,107,107,0.15)' : 'rgba(253,203,110,0.12)';
+        const color    = isOver ? '#FF6B6B'                 : '#FDCB6E';
+        const border   = isOver ? 'rgba(255,107,107,0.40)' : 'rgba(253,203,110,0.40)';
+        const pctLabel = Math.round(ratio * 100) + '%';
+        return `<div class="pill" style="background:${bg};color:${color};border-color:${border}">
+          <span class="pill-icon">${cat.icon}</span>
+          <span>${cat.name}&nbsp;${pctLabel}</span>
+        </div>`;
+      }).join('');
+    }
+
+    /* — Dernière mise à jour — */
+    document.getElementById('last-update').textContent =
+      'Actualisé à ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /* ── Clavier ─────────────────────────────────────────────────────── */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+      signIn();
+    }
+  });
+
+  /* ── Rafraîchissement automatique toutes les 5 minutes ──────────── */
+  setInterval(() => {
+    if (document.getElementById('dashboard').style.display !== 'none') fetchData();
+  }, 5 * 60 * 1000);
+
+  /* ── Initialisation ──────────────────────────────────────────────── */
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    document.getElementById('loading').classList.add('gone');
+    if (session) {
+      show('dashboard');
+      fetchData();
+    } else {
+      show('login-screen');
+    }
+  })();
+</script>
+</body>
+</html>
